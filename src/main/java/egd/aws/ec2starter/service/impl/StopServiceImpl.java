@@ -1,9 +1,13 @@
 package egd.aws.ec2starter.service.impl;
 
+import javax.annotation.PostConstruct;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.amazonaws.auth.AWSStaticCredentialsProvider;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.ec2.AmazonEC2;
 import com.amazonaws.services.ec2.AmazonEC2ClientBuilder;
@@ -16,8 +20,11 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @Slf4j
 public class StopServiceImpl {
-    Regions region = com.amazonaws.regions.Regions.US_EAST_2;
-    AmazonEC2 ec2 = AmazonEC2ClientBuilder.standard().withRegion(region).build();
+    @Value("${AWS_ACCESS_KEY_ID}")
+    private String access_key_id;
+    
+    @Value("${AWS_SECRET_ACCESS_KEY}")
+    private String secret_key_id;
 
     @Value("${aws.ec2.app.instance}")
     private String ec2AppInstanceId;
@@ -26,8 +33,20 @@ public class StopServiceImpl {
     private String ec2DbInstanceId;
 
     private int maxStatusNumIntentos = 100;
+    
+    private AmazonEC2 ec2;
+    
+    @PostConstruct
+    private void init() {
+        Regions region = com.amazonaws.regions.Regions.US_EAST_2;
+        BasicAWSCredentials awsCreds = new BasicAWSCredentials(access_key_id, secret_key_id);
+        
+        ec2 = AmazonEC2ClientBuilder.standard()
+                .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
+                .withRegion(region).build();
+    }
 
-    @Scheduled(cron = "${cron.stop.expression}")
+    @Scheduled(cron = "${cron.stop.expression}", zone="America/Mexico_City")
     public void startApplication() {
         log.info("Iniciando proceso de parado.");
         InstanceState appInstanceState = StartStopInstance.checkEc2InstanceStatus(ec2, ec2AppInstanceId,
